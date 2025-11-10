@@ -14,16 +14,351 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      clinical_notes: {
+        Row: {
+          assessment: string | null
+          consultation_id: string
+          created_at: string | null
+          doctor_id: string
+          follow_up: string | null
+          id: string
+          lab_orders: Json | null
+          objective: string | null
+          plan: string | null
+          prescriptions: Json | null
+          subjective: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assessment?: string | null
+          consultation_id: string
+          created_at?: string | null
+          doctor_id: string
+          follow_up?: string | null
+          id?: string
+          lab_orders?: Json | null
+          objective?: string | null
+          plan?: string | null
+          prescriptions?: Json | null
+          subjective?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assessment?: string | null
+          consultation_id?: string
+          created_at?: string | null
+          doctor_id?: string
+          follow_up?: string | null
+          id?: string
+          lab_orders?: Json | null
+          objective?: string | null
+          plan?: string | null
+          prescriptions?: Json | null
+          subjective?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_notes_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_notes_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultations: {
+        Row: {
+          chief_complaint: string | null
+          created_at: string | null
+          doctor_id: string | null
+          end_time: string | null
+          id: string
+          nurse_id: string | null
+          patient_id: string
+          priority: Database["public"]["Enums"]["priority_level"] | null
+          scheduled_time: string | null
+          start_time: string | null
+          status: Database["public"]["Enums"]["consultation_status"] | null
+          transcription: string | null
+          updated_at: string | null
+          visit_type: string | null
+        }
+        Insert: {
+          chief_complaint?: string | null
+          created_at?: string | null
+          doctor_id?: string | null
+          end_time?: string | null
+          id?: string
+          nurse_id?: string | null
+          patient_id: string
+          priority?: Database["public"]["Enums"]["priority_level"] | null
+          scheduled_time?: string | null
+          start_time?: string | null
+          status?: Database["public"]["Enums"]["consultation_status"] | null
+          transcription?: string | null
+          updated_at?: string | null
+          visit_type?: string | null
+        }
+        Update: {
+          chief_complaint?: string | null
+          created_at?: string | null
+          doctor_id?: string | null
+          end_time?: string | null
+          id?: string
+          nurse_id?: string | null
+          patient_id?: string
+          priority?: Database["public"]["Enums"]["priority_level"] | null
+          scheduled_time?: string | null
+          start_time?: string | null
+          status?: Database["public"]["Enums"]["consultation_status"] | null
+          transcription?: string | null
+          updated_at?: string | null
+          visit_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultations_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultations_nurse_id_fkey"
+            columns: ["nurse_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultations_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patients: {
+        Row: {
+          address: string | null
+          allergies: string[] | null
+          created_at: string | null
+          current_medications: Json | null
+          date_of_birth: string
+          diagnosis: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          full_name: string
+          gender: string | null
+          id: string
+          mrn: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          allergies?: string[] | null
+          created_at?: string | null
+          current_medications?: Json | null
+          date_of_birth: string
+          diagnosis?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          full_name: string
+          gender?: string | null
+          id?: string
+          mrn: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          allergies?: string[] | null
+          created_at?: string | null
+          current_medications?: Json | null
+          date_of_birth?: string
+          diagnosis?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          full_name?: string
+          gender?: string | null
+          id?: string
+          mrn?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          license_number: string | null
+          specialty: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          license_number?: string | null
+          specialty?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          license_number?: string | null
+          specialty?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      triage_forms: {
+        Row: {
+          additional_notes: string | null
+          completed: boolean | null
+          consultation_id: string | null
+          created_at: string | null
+          id: string
+          last_seizure_date: string | null
+          medication_compliance: string | null
+          nurse_id: string | null
+          patient_id: string
+          seizure_duration: string | null
+          seizure_frequency: string | null
+          side_effects: string | null
+          sleep_quality: string | null
+          stress_level: string | null
+          triggers: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_notes?: string | null
+          completed?: boolean | null
+          consultation_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_seizure_date?: string | null
+          medication_compliance?: string | null
+          nurse_id?: string | null
+          patient_id: string
+          seizure_duration?: string | null
+          seizure_frequency?: string | null
+          side_effects?: string | null
+          sleep_quality?: string | null
+          stress_level?: string | null
+          triggers?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_notes?: string | null
+          completed?: boolean | null
+          consultation_id?: string | null
+          created_at?: string | null
+          id?: string
+          last_seizure_date?: string | null
+          medication_compliance?: string | null
+          nurse_id?: string | null
+          patient_id?: string
+          seizure_duration?: string | null
+          seizure_frequency?: string | null
+          side_effects?: string | null
+          sleep_quality?: string | null
+          stress_level?: string | null
+          triggers?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "triage_forms_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "triage_forms_nurse_id_fkey"
+            columns: ["nurse_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "triage_forms_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "doctor" | "nurse" | "admin"
+      consultation_status: "waiting" | "in_progress" | "completed" | "cancelled"
+      priority_level: "routine" | "urgent" | "emergency"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +485,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["doctor", "nurse", "admin"],
+      consultation_status: ["waiting", "in_progress", "completed", "cancelled"],
+      priority_level: ["routine", "urgent", "emergency"],
+    },
   },
 } as const
