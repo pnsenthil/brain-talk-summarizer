@@ -1,4 +1,4 @@
-import { Activity, Bell, User, Settings } from "lucide-react";
+import { Activity, Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,8 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const Header = () => {
+  const { user, userRole, signOut } = useAuth();
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-card shadow-sm">
       <div className="flex h-16 items-center justify-between px-6">
@@ -43,16 +46,13 @@ export const Header = () => {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div>
-                  <p className="font-semibold">Dr. Sarah Mitchell</p>
-                  <p className="text-xs text-muted-foreground">Neurologist</p>
+                  <p className="font-semibold">{user?.email}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{userRole}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={signOut} className="text-destructive focus:text-destructive cursor-pointer">
+                <LogOut className="mr-2 h-4 w-4" />
                 Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
