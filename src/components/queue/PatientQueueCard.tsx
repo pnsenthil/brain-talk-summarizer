@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, AlertTriangle, CheckCircle } from "lucide-react";
+import { TriageFormDialog } from "@/components/triage/TriageFormDialog";
 
 interface Patient {
   id: string;
@@ -13,14 +15,19 @@ interface Patient {
   triageComplete: boolean;
   priority: "routine" | "urgent" | "emergency";
   estimatedDelay: number;
+  consultationId?: string;
+  patientId?: string;
 }
 
 interface PatientQueueCardProps {
   patient: Patient;
   onStartConsultation: (id: string) => void;
+  onTriageComplete?: () => void;
 }
 
-export const PatientQueueCard = ({ patient, onStartConsultation }: PatientQueueCardProps) => {
+export const PatientQueueCard = ({ patient, onStartConsultation, onTriageComplete }: PatientQueueCardProps) => {
+  const [triageDialogOpen, setTriageDialogOpen] = useState(false);
+  
   const statusColors = {
     waiting: "bg-muted text-muted-foreground",
     ready: "bg-success text-success-foreground",
@@ -80,8 +87,9 @@ export const PatientQueueCard = ({ patient, onStartConsultation }: PatientQueueC
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setTriageDialogOpen(true)}
           >
-            View Triage
+            {patient.triageComplete ? "View" : "Complete"} Triage
           </Button>
           <Button
             onClick={() => onStartConsultation(patient.id)}
@@ -91,6 +99,16 @@ export const PatientQueueCard = ({ patient, onStartConsultation }: PatientQueueC
           </Button>
         </div>
       </div>
+      
+      {patient.consultationId && patient.patientId && (
+        <TriageFormDialog
+          open={triageDialogOpen}
+          onOpenChange={setTriageDialogOpen}
+          consultationId={patient.consultationId}
+          patientId={patient.patientId}
+          onComplete={onTriageComplete}
+        />
+      )}
     </Card>
   );
 };

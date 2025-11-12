@@ -1,65 +1,70 @@
 import { PatientQueueCard } from "@/components/queue/PatientQueueCard";
+import { PatientRegistrationDialog } from "@/components/queue/PatientRegistrationDialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Users, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-
-const mockPatients = [
-  {
-    id: "1",
-    name: "Emma Wilson",
-    age: 34,
-    gender: "F",
-    appointmentTime: "09:30",
-    status: "in-progress" as const,
-    triageComplete: true,
-    priority: "routine" as const,
-    estimatedDelay: 0,
-  },
-  {
-    id: "2",
-    name: "Michael Brown",
-    age: 45,
-    gender: "M",
-    appointmentTime: "10:00",
-    status: "ready" as const,
-    triageComplete: true,
-    priority: "urgent" as const,
-    estimatedDelay: 15,
-  },
-  {
-    id: "3",
-    name: "Sarah Johnson",
-    age: 28,
-    gender: "F",
-    appointmentTime: "10:30",
-    status: "waiting" as const,
-    triageComplete: false,
-    priority: "routine" as const,
-    estimatedDelay: 30,
-  },
-  {
-    id: "4",
-    name: "Robert Davis",
-    age: 52,
-    gender: "M",
-    appointmentTime: "11:00",
-    status: "waiting" as const,
-    triageComplete: true,
-    priority: "routine" as const,
-    estimatedDelay: 45,
-  },
-];
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Queue = () => {
-  const [patients] = useState(mockPatients);
+  const [consultations, setConsultations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  const handleStartConsultation = (patientId: string) => {
-    navigate(`/consultation/${patientId}`);
+  useEffect(() => {
+    loadConsultations();
+  }, []);
+
+  const loadConsultations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("consultations")
+        .select(`
+          *,
+          patients (*),
+          triage_forms (*)
+        `)
+        .in("status", ["waiting", "ready", "in_progress"])
+        .order("scheduled_time", { ascending: true });
+
+      if (error) throw error;
+      setConsultations(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading queue",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleStartConsultation = (consultationId: string) => {
+    navigate(`/consultation/${consultationId}`);
+  };
+
+  const patients = consultations.map(c => ({
+    id: c.id,
+    name: c.patients.full_name,
+    age: new Date().getFullYear() - new Date(c.patients.date_of_birth).getFullYear(),
+    gender: c.patients.gender,
+    appointmentTime: new Date(c.scheduled_time).toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    }),
+    status: c.status === "in_progress" ? "in-progress" : c.status,
+    triageComplete: c.triage_forms?.length > 0 && c.triage_forms[0].completed,
+    priority: c.priority,
+    estimatedDelay: 0,
+    consultationId: c.id,
+    patientId: c.patient_id,
+  }));
 
   const stats = {
     total: patients.length,
@@ -74,10 +79,13 @@ const Queue = () => {
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Patient Queue</h2>
           <p className="text-muted-foreground mt-1">Manage today's consultations</p>
         </div>
-        <Button variant="outline" size="sm">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <PatientRegistrationDialog onPatientAdded={loadConsultations} />
+          <Button variant="outline" size="sm" onClick={loadConsultations}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Queue Stats */}
@@ -129,13 +137,24 @@ const Queue = () => {
 
       {/* Patient Queue */}
       <div className="space-y-3">
-        {patients.map(patient => (
-          <PatientQueueCard
-            key={patient.id}
-            patient={patient}
-            onStartConsultation={handleStartConsultation}
-          />
-        ))}
+        {loading ? (
+          <Card className="p-8 text-center text-muted-foreground">
+            Loading patients...
+          </Card>
+        ) : patients.length === 0 ? (
+          <Card className="p-8 text-center text-muted-foreground">
+            No patients in queue. Register a new patient to get started.
+          </Card>
+        ) : (
+          patients.map(patient => (
+            <PatientQueueCard
+              key={patient.id}
+              patient={patient}
+              onStartConsultation={handleStartConsultation}
+              onTriageComplete={loadConsultations}
+            />
+          ))
+        )}
       </div>
     </div>
   );
