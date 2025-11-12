@@ -28,7 +28,7 @@ const Queue = () => {
           patients (*),
           triage_forms (*)
         `)
-        .in("status", ["waiting", "ready", "in_progress"])
+        .in("status", ["waiting", "in_progress"])
         .order("scheduled_time", { ascending: true });
 
       if (error) throw error;
