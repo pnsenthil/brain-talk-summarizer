@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import Dashboard from "./pages/Dashboard";
 import Queue from "./pages/Queue";
 import Consultation from "./pages/Consultation";
+import Consultations from "./pages/Consultations";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
@@ -85,7 +86,7 @@ const App = () => (
                   <div className="flex">
                     <Sidebar />
                     <main className="flex-1 ml-64 p-8 pt-6">
-                      <Dashboard />
+                      <Consultations />
                     </main>
                   </div>
                 </div>
