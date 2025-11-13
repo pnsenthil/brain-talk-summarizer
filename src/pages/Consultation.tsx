@@ -6,9 +6,17 @@ import { ClinicalNotes } from "@/components/consultation/ClinicalNotes";
 import { GuidelinePanel } from "@/components/consultation/GuidelinePanel";
 import { ArrowLeft, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+
+interface TranscriptMessage {
+  speaker: "Doctor" | "Patient";
+  text: string;
+  timestamp: number;
+}
 
 const Consultation = () => {
   const navigate = useNavigate();
+  const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
 
   return (
     <div className="space-y-6">
@@ -82,10 +90,10 @@ const Consultation = () => {
         {/* Left Column - Transcription & Notes */}
         <div className="lg:col-span-2 space-y-6">
           <div className="h-[400px]">
-            <TranscriptionPanel />
+            <TranscriptionPanel onTranscriptUpdate={setTranscript} />
           </div>
           <div className="h-[600px]">
-            <ClinicalNotes />
+            <ClinicalNotes transcript={transcript} />
           </div>
         </div>
 

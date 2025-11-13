@@ -5,13 +5,91 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Save, Copy } from "lucide-react";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
-export const ClinicalNotes = () => {
+interface TranscriptMessage {
+  speaker: "Doctor" | "Patient";
+  text: string;
+  timestamp: number;
+}
+
+interface ClinicalNotesProps {
+  transcript?: TranscriptMessage[];
+}
+
+export const ClinicalNotes = ({ transcript = [] }: ClinicalNotesProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [subjective, setSubjective] = useState("");
+  const [objective, setObjective] = useState("");
+  const [assessment, setAssessment] = useState("");
+  const [plan, setPlan] = useState("");
+  const { toast } = useToast();
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (transcript.length === 0) {
+      toast({
+        title: "No transcript available",
+        description: "Please record a consultation first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsGenerating(true);
-    setTimeout(() => setIsGenerating(false), 2000);
+    
+    try {
+      // Convert transcript to text format
+      const transcriptText = transcript
+        .map(msg => `${msg.speaker}: ${msg.text}`)
+        .join('\n\n');
+
+      const { data, error } = await supabase.functions.invoke('generate-soap-notes', {
+        body: { 
+          transcript: transcriptText,
+          patientInfo: null
+        }
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setSubjective(data.subjective || "");
+        setObjective(data.objective || "");
+        setAssessment(data.assessment || "");
+        setPlan(data.plan || "");
+        
+        toast({
+          title: "SOAP notes generated",
+          description: "AI has created clinical documentation from the transcript",
+        });
+      }
+    } catch (error) {
+      console.error('Error generating SOAP notes:', error);
+      toast({
+        title: "Generation failed",
+        description: error instanceof Error ? error.message : "Failed to generate SOAP notes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCopy = () => {
+    const allNotes = `SUBJECTIVE:\n${subjective}\n\nOBJECTIVE:\n${objective}\n\nASSESSMENT:\n${assessment}\n\nPLAN:\n${plan}`;
+    navigator.clipboard.writeText(allNotes);
+    toast({
+      title: "Copied to clipboard",
+      description: "SOAP notes have been copied",
+    });
+  };
+
+  const handleSave = () => {
+    toast({
+      title: "Notes saved",
+      description: "Clinical notes have been saved successfully",
+    });
   };
 
   return (
@@ -23,16 +101,16 @@ export const ClinicalNotes = () => {
             variant="outline" 
             size="sm"
             onClick={handleGenerate}
-            disabled={isGenerating}
+            disabled={isGenerating || transcript.length === 0}
           >
             <Sparkles className="h-4 w-4 mr-2" />
             {isGenerating ? "Generating..." : "Auto-Generate"}
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={handleCopy}>
             <Copy className="h-4 w-4 mr-2" />
             Copy
           </Button>
-          <Button size="sm" className="bg-success hover:bg-success/90">
+          <Button size="sm" className="bg-success hover:bg-success/90" onClick={handleSave}>
             <Save className="h-4 w-4 mr-2" />
             Save Note
           </Button>
@@ -56,7 +134,8 @@ export const ClinicalNotes = () => {
             <Textarea 
               placeholder="Patient's chief complaint and history..."
               className="min-h-[100px] resize-none"
-              defaultValue="Patient reports increased seizure frequency (3-4 episodes this week), primarily occurring in the morning hours. Patient notes possible correlation with sleep disruption."
+              value={subjective}
+              onChange={(e) => setSubjective(e.target.value)}
             />
           </div>
 
@@ -68,7 +147,8 @@ export const ClinicalNotes = () => {
             <Textarea 
               placeholder="Physical examination findings..."
               className="min-h-[100px] resize-none"
-              defaultValue="Vital signs stable. Neurological examination unremarkable. Alert and oriented x3. No focal deficits noted."
+              value={objective}
+              onChange={(e) => setObjective(e.target.value)}
             />
           </div>
 
@@ -80,7 +160,8 @@ export const ClinicalNotes = () => {
             <Textarea 
               placeholder="Diagnosis and clinical impression..."
               className="min-h-[80px] resize-none"
-              defaultValue="Focal onset epilepsy with increased seizure frequency. Possible medication non-compliance or breakthrough seizures despite current regimen."
+              value={assessment}
+              onChange={(e) => setAssessment(e.target.value)}
             />
           </div>
 
@@ -92,7 +173,8 @@ export const ClinicalNotes = () => {
             <Textarea 
               placeholder="Treatment plan and recommendations..."
               className="min-h-[100px] resize-none"
-              defaultValue="1. Adjust levetiracetam dosage to 1500mg BID&#10;2. Order EEG to assess seizure activity&#10;3. Sleep hygiene counseling&#10;4. Follow-up in 2 weeks"
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
             />
           </div>
         </TabsContent>
@@ -113,9 +195,9 @@ export const ClinicalNotes = () => {
       <div className="mt-4 pt-4 border-t">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground flex items-center gap-2">
-            AI-assisted by <span className="font-semibold text-medical-teal">MedLM</span>
+            AI-assisted by <span className="font-semibold text-medical-teal">Lovable AI</span>
           </span>
-          <span className="text-muted-foreground">Last saved: 2 minutes ago</span>
+          <span className="text-muted-foreground">Transcript messages: {transcript.length}</span>
         </div>
       </div>
     </Card>
