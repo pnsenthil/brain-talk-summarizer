@@ -3,47 +3,94 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Calendar, Clock, User } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
-const mockConsultations = [
-  {
-    id: "1",
-    patientName: "Emma Wilson",
-    date: "2024-01-15",
-    time: "09:30 AM",
-    diagnosis: "Focal Onset Epilepsy",
-    status: "completed",
-  },
-  {
-    id: "2",
-    patientName: "John Smith",
-    date: "2024-01-15",
-    time: "10:45 AM",
-    diagnosis: "Generalized Epilepsy",
-    status: "completed",
-  },
-  {
-    id: "3",
-    patientName: "Sarah Johnson",
-    date: "2024-01-15",
-    time: "02:00 PM",
-    diagnosis: "Absence Seizures",
-    status: "in-progress",
-  },
-];
+interface Consultation {
+  id: string;
+  patient_id: string;
+  scheduled_time: string;
+  status: string;
+  chief_complaint: string | null;
+  patients: {
+    full_name: string;
+    diagnosis: string | null;
+  } | null;
+}
 
 const Consultations = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchConsultations = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('consultations')
+          .select(`
+            id,
+            patient_id,
+            scheduled_time,
+            status,
+            chief_complaint,
+            patients (
+              full_name,
+              diagnosis
+            )
+          `)
+          .order('scheduled_time', { ascending: false });
+
+        if (error) throw error;
+        setConsultations(data || []);
+      } catch (error) {
+        console.error('Error fetching consultations:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load consultations",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConsultations();
+  }, [toast]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "completed":
         return "bg-success text-success-foreground";
-      case "in-progress":
+      case "in_progress":
         return "bg-warning text-warning-foreground";
+      case "waiting":
+        return "bg-info text-info-foreground";
       default:
         return "bg-muted text-muted-foreground";
     }
   };
+
+  const formatDateTime = (dateTime: string) => {
+    const date = new Date(dateTime);
+    return {
+      date: date.toLocaleDateString(),
+      time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Consultations</h2>
+          <p className="text-muted-foreground mt-1">Loading consultations...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -52,52 +99,61 @@ const Consultations = () => {
         <p className="text-muted-foreground mt-1">View and manage patient consultations</p>
       </div>
 
-      <div className="grid gap-4">
-        {mockConsultations.map((consultation) => (
-          <Card key={consultation.id} className="p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between">
-              <div className="flex items-start gap-4 flex-1">
-                <div className="h-12 w-12 rounded-full bg-medical-blue/10 flex items-center justify-center">
-                  <User className="h-6 w-6 text-medical-blue" />
-                </div>
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold text-foreground">
-                      {consultation.patientName}
-                    </h3>
-                    <Badge className={getStatusColor(consultation.status)}>
-                      {consultation.status}
-                    </Badge>
+      {consultations.length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">No consultations found</p>
+        </Card>
+      ) : (
+        <div className="grid gap-4">
+          {consultations.map((consultation) => {
+            const dateTime = formatDateTime(consultation.scheduled_time);
+            return (
+              <Card key={consultation.id} className="p-6 hover:shadow-lg transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start gap-4 flex-1">
+                    <div className="h-12 w-12 rounded-full bg-medical-blue/10 flex items-center justify-center">
+                      <User className="h-6 w-6 text-medical-blue" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-foreground">
+                          {consultation.patients?.full_name || 'Unknown Patient'}
+                        </h3>
+                        <Badge className={getStatusColor(consultation.status)}>
+                          {consultation.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {consultation.chief_complaint || consultation.patients?.diagnosis || 'No diagnosis recorded'}
+                      </p>
+                      
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          {dateTime.date}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          {dateTime.time}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {consultation.diagnosis}
-                  </p>
-                  
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {consultation.date}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {consultation.time}
-                    </div>
-                  </div>
+                  <Button
+                    onClick={() => navigate(`/consultation/${consultation.id}`)}
+                    variant="outline"
+                  >
+                    View Details
+                  </Button>
                 </div>
-              </div>
-              
-              <Button
-                onClick={() => navigate(`/consultation/${consultation.id}`)}
-                variant="outline"
-              >
-                View Details
-              </Button>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
