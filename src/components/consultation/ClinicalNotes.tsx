@@ -4,7 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Sparkles, Save, Copy } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -16,15 +16,43 @@ interface TranscriptMessage {
 
 interface ClinicalNotesProps {
   transcript?: TranscriptMessage[];
+  consultationId?: string;
 }
 
-export const ClinicalNotes = ({ transcript = [] }: ClinicalNotesProps) => {
+export const ClinicalNotes = ({ transcript = [], consultationId }: ClinicalNotesProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [subjective, setSubjective] = useState("");
   const [objective, setObjective] = useState("");
   const [assessment, setAssessment] = useState("");
   const [plan, setPlan] = useState("");
   const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchClinicalNotes = async () => {
+      if (!consultationId) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('clinical_notes')
+          .select('*')
+          .eq('consultation_id', consultationId)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') throw error;
+
+        if (data) {
+          setSubjective(data.subjective || "");
+          setObjective(data.objective || "");
+          setAssessment(data.assessment || "");
+          setPlan(data.plan || "");
+        }
+      } catch (error) {
+        console.error('Error fetching clinical notes:', error);
+      }
+    };
+
+    fetchClinicalNotes();
+  }, [consultationId]);
 
   const handleGenerate = async () => {
     if (transcript.length === 0) {
@@ -85,11 +113,67 @@ export const ClinicalNotes = ({ transcript = [] }: ClinicalNotesProps) => {
     });
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Notes saved",
-      description: "Clinical notes have been saved successfully",
-    });
+  const handleSave = async () => {
+    if (!consultationId) {
+      toast({
+        title: "Error",
+        description: "No consultation ID found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session?.user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data: existing } = await supabase
+        .from('clinical_notes')
+        .select('id')
+        .eq('consultation_id', consultationId)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('clinical_notes')
+          .update({
+            subjective,
+            objective,
+            assessment,
+            plan,
+          })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('clinical_notes')
+          .insert({
+            consultation_id: consultationId,
+            doctor_id: session.session.user.id,
+            subjective,
+            objective,
+            assessment,
+            plan,
+          });
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Notes saved",
+        description: "Clinical notes have been saved successfully",
+      });
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save clinical notes",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
