@@ -9,7 +9,7 @@ interface AuthContextType {
   userRole: string | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string, role: 'doctor' | 'nurse') => Promise<void>;
+  signUp: (email: string, password: string, fullName: string, role: 'doctor' | 'nurse' | 'patient') => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -70,15 +70,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) throw error;
-    navigate('/');
+    
+    // Check user role and redirect accordingly
+    if (data.user) {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .single();
+      
+      if (roleData?.role === 'patient') {
+        navigate('/patient');
+      } else {
+        navigate('/');
+      }
+    }
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'doctor' | 'nurse') => {
+  const signUp = async (email: string, password: string, fullName: string, role: 'doctor' | 'nurse' | 'patient') => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -86,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         data: {
           full_name: fullName,
         },
+        emailRedirectTo: `${window.location.origin}/`,
       },
     });
     
@@ -100,7 +115,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (roleError) throw roleError;
     }
     
-    navigate('/');
+    // Redirect based on role
+    if (role === 'patient') {
+      navigate('/patient');
+    } else {
+      navigate('/');
+    }
   };
 
   const signOut = async () => {

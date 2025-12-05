@@ -13,7 +13,7 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'doctor' | 'nurse'>('doctor');
+  const [role, setRole] = useState<'doctor' | 'nurse' | 'patient'>('doctor');
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const { toast } = useToast();
@@ -89,13 +89,14 @@ export default function Signup() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={(value: 'doctor' | 'nurse') => setRole(value)}>
+              <Select value={role} onValueChange={(value: 'doctor' | 'nurse' | 'patient') => setRole(value)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="doctor">Doctor</SelectItem>
                   <SelectItem value="nurse">Nurse</SelectItem>
+                  <SelectItem value="patient">Patient</SelectItem>
                 </SelectContent>
               </Select>
             </div>
