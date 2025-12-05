@@ -147,6 +147,63 @@ export type Database = {
           },
         ]
       }
+      patient_uploads: {
+        Row: {
+          consultation_id: string | null
+          created_at: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          patient_id: string
+          summary: string | null
+          transcription: string | null
+          updated_at: string
+          upload_type: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          consultation_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          patient_id: string
+          summary?: string | null
+          transcription?: string | null
+          updated_at?: string
+          upload_type: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          consultation_id?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          patient_id?: string
+          summary?: string | null
+          transcription?: string | null
+          updated_at?: string
+          upload_type?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_uploads_consultation_id_fkey"
+            columns: ["consultation_id"]
+            isOneToOne: false
+            referencedRelation: "consultations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_uploads_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patients: {
         Row: {
           address: string | null
@@ -164,6 +221,7 @@ export type Database = {
           mrn: string
           phone: string | null
           updated_at: string | null
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -181,6 +239,7 @@ export type Database = {
           mrn: string
           phone?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -198,6 +257,7 @@ export type Database = {
           mrn?: string
           phone?: string | null
           updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -356,7 +416,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "doctor" | "nurse" | "admin"
+      app_role: "doctor" | "nurse" | "admin" | "patient"
       consultation_status: "waiting" | "in_progress" | "completed" | "cancelled"
       priority_level: "routine" | "urgent" | "emergency"
     }
@@ -486,7 +546,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["doctor", "nurse", "admin"],
+      app_role: ["doctor", "nurse", "admin", "patient"],
       consultation_status: ["waiting", "in_progress", "completed", "cancelled"],
       priority_level: ["routine", "urgent", "emergency"],
     },

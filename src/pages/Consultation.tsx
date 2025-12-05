@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { TranscriptionPanel } from "@/components/consultation/TranscriptionPanel";
 import { ClinicalNotes } from "@/components/consultation/ClinicalNotes";
 import { GuidelinePanel } from "@/components/consultation/GuidelinePanel";
+import { PatientUploadsPanel } from "@/components/consultation/PatientUploadsPanel";
 import { ArrowLeft, User } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -17,6 +18,7 @@ interface TranscriptMessage {
 }
 
 interface PatientInfo {
+  id: string;
   full_name: string;
   mrn: string;
   date_of_birth: string;
@@ -43,6 +45,7 @@ const Consultation = () => {
             transcription,
             patient_id,
             patients (
+              id,
               full_name,
               mrn,
               date_of_birth,
@@ -181,6 +184,11 @@ const Consultation = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Transcription & Notes */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Patient Uploads from Portal */}
+          {patientInfo?.id && (
+            <PatientUploadsPanel patientId={patientInfo.id} consultationId={id} />
+          )}
+          
           <div className="h-[400px]">
             <TranscriptionPanel onTranscriptUpdate={handleTranscriptUpdate} />
           </div>

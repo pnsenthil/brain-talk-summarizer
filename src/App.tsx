@@ -13,6 +13,7 @@ import Consultation from "./pages/Consultation";
 import Consultations from "./pages/Consultations";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import PatientPortal from "./pages/PatientPortal";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,11 @@ const App = () => (
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/patient" element={
+              <ProtectedRoute>
+                <PatientPortal />
+              </ProtectedRoute>
+            } />
             <Route path="/" element={
               <ProtectedRoute>
                 <div className="min-h-screen bg-background">
