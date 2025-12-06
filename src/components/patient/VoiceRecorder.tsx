@@ -106,23 +106,28 @@ export function VoiceRecorder({ patientId, consultationId, onUploadComplete }: V
 
           if (uploadError) throw uploadError;
 
-          // Get public URL
-          const { data: { publicUrl } } = supabase.storage
+          // Get signed URL for private bucket (valid for 1 hour)
+          const { data: signedUrlData, error: signedUrlError } = await supabase.storage
             .from('patient-uploads')
-            .getPublicUrl(fileName);
+            .createSignedUrl(fileName, 3600);
 
-          toast({ title: "Uploading complete", description: "Starting transcription..." });
+          if (signedUrlError) throw signedUrlError;
 
-          // Call transcription function
+          toast({ title: "Upload complete", description: "Starting transcription..." });
+
+          // Call transcription function with signed URL
           const { data: transcriptData, error: transcriptError } = await supabase.functions
             .invoke('transcribe-assemblyai', {
-              body: { audioUrl: publicUrl }
+              body: { audioUrl: signedUrlData.signedUrl }
             });
 
           if (transcriptError) throw transcriptError;
 
           const transcribedText = transcriptData.text;
           setTranscription(transcribedText);
+
+          // Store the permanent path for the file
+          const fileUrl = fileName;
 
           // Generate summary
           const { data: summaryData } = await supabase.functions
@@ -137,7 +142,7 @@ export function VoiceRecorder({ patientId, consultationId, onUploadComplete }: V
               patient_id: patientId,
               consultation_id: consultationId,
               upload_type: 'voice_note',
-              file_url: publicUrl,
+              file_url: fileUrl,
               file_name: fileName,
               transcription: transcribedText,
               summary: summaryData?.summary,
