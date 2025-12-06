@@ -113,6 +113,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .insert([{ user_id: data.user.id, role }]);
       
       if (roleError) throw roleError;
+
+      // If patient, try to link to existing patient record by email
+      if (role === 'patient') {
+        // Use an edge function or RPC to link patient record (avoid RLS issues)
+        await supabase.functions.invoke('link-patient-record', {
+          body: { userId: data.user.id, email }
+        });
+      }
     }
     
     // Redirect based on role
