@@ -5,11 +5,22 @@ import { TranscriptionPanel } from "@/components/consultation/TranscriptionPanel
 import { ClinicalNotes } from "@/components/consultation/ClinicalNotes";
 import { GuidelinePanel } from "@/components/consultation/GuidelinePanel";
 import { PatientUploadsPanel } from "@/components/consultation/PatientUploadsPanel";
-import { ArrowLeft, User } from "lucide-react";
+import { ArrowLeft, User, CheckCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface TranscriptMessage {
   speaker: "Doctor" | "Patient";
@@ -25,6 +36,13 @@ interface PatientInfo {
   diagnosis: string | null;
 }
 
+interface SoapNotes {
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+}
+
 const Consultation = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -32,6 +50,14 @@ const Consultation = () => {
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
   const [patientInfo, setPatientInfo] = useState<PatientInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [soapNotes, setSoapNotes] = useState<SoapNotes>({
+    subjective: null,
+    objective: null,
+    assessment: null,
+    plan: null,
+  });
+  const [isEndingSession, setIsEndingSession] = useState(false);
+  const [consultationStatus, setConsultationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchConsultation = async () => {
@@ -44,6 +70,7 @@ const Consultation = () => {
             id,
             transcription,
             patient_id,
+            status,
             patients (
               id,
               full_name,
@@ -61,6 +88,8 @@ const Consultation = () => {
           setPatientInfo(data.patients as PatientInfo);
         }
 
+        setConsultationStatus(data?.status || null);
+
         if (data?.transcription) {
           try {
             const parsedTranscript = JSON.parse(data.transcription);
@@ -68,6 +97,17 @@ const Consultation = () => {
           } catch {
             console.error('Failed to parse transcript');
           }
+        }
+
+        // Fetch existing clinical notes
+        const { data: notesData } = await supabase
+          .from('clinical_notes')
+          .select('subjective, objective, assessment, plan')
+          .eq('consultation_id', id)
+          .single();
+
+        if (notesData) {
+          setSoapNotes(notesData);
         }
       } catch (error) {
         console.error('Error fetching consultation:', error);
@@ -101,6 +141,44 @@ const Consultation = () => {
     }
   };
 
+  const handleSoapNotesUpdate = (notes: SoapNotes) => {
+    setSoapNotes(notes);
+  };
+
+  const handleEndConsultation = async () => {
+    if (!id) return;
+
+    setIsEndingSession(true);
+    try {
+      const { error } = await supabase
+        .from('consultations')
+        .update({ 
+          status: 'completed',
+          end_time: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Session Ended",
+        description: "Consultation has been marked as completed",
+      });
+
+      setConsultationStatus('completed');
+      navigate('/queue');
+    } catch (error) {
+      console.error('Error ending consultation:', error);
+      toast({
+        title: "Error",
+        description: "Failed to end consultation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEndingSession(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -108,6 +186,8 @@ const Consultation = () => {
       </div>
     );
   }
+
+  const isCompleted = consultationStatus === 'completed';
 
   return (
     <div className="space-y-6">
@@ -117,12 +197,45 @@ const Consultation = () => {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground">Consultation</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">Consultation</h2>
+            {isCompleted && (
+              <Badge className="bg-success text-success-foreground">
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Completed
+              </Badge>
+            )}
+          </div>
           <p className="text-muted-foreground mt-1">
             {patientInfo ? `Active session with ${patientInfo.full_name}` : 'Loading patient info...'}
           </p>
         </div>
-        <Button variant="outline">End Consultation</Button>
+        
+        {!isCompleted && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive">End Session</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>End Consultation Session?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will mark the consultation as completed. Make sure all clinical notes have been saved before ending the session.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleEndConsultation}
+                  disabled={isEndingSession}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isEndingSession ? "Ending..." : "End Session"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       {/* Patient Info Card */}
@@ -193,13 +306,17 @@ const Consultation = () => {
             <TranscriptionPanel onTranscriptUpdate={handleTranscriptUpdate} />
           </div>
           <div className="h-[600px]">
-            <ClinicalNotes transcript={transcript} consultationId={id} />
+            <ClinicalNotes 
+              transcript={transcript} 
+              consultationId={id} 
+              onNotesUpdate={handleSoapNotesUpdate}
+            />
           </div>
         </div>
 
         {/* Right Column - Guidelines & Alerts */}
         <div className="h-[1050px]">
-          <GuidelinePanel />
+          <GuidelinePanel consultationId={id} soapNotes={soapNotes} />
         </div>
       </div>
     </div>
