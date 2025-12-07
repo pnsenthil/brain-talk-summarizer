@@ -14,18 +14,33 @@ interface TranscriptMessage {
   timestamp: number;
 }
 
+interface SoapNotes {
+  subjective: string | null;
+  objective: string | null;
+  assessment: string | null;
+  plan: string | null;
+}
+
 interface ClinicalNotesProps {
   transcript?: TranscriptMessage[];
   consultationId?: string;
+  onNotesUpdate?: (notes: SoapNotes) => void;
 }
 
-export const ClinicalNotes = ({ transcript = [], consultationId }: ClinicalNotesProps) => {
+export const ClinicalNotes = ({ transcript = [], consultationId, onNotesUpdate }: ClinicalNotesProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [subjective, setSubjective] = useState("");
   const [objective, setObjective] = useState("");
   const [assessment, setAssessment] = useState("");
   const [plan, setPlan] = useState("");
   const { toast } = useToast();
+
+  // Notify parent when notes change
+  useEffect(() => {
+    if (onNotesUpdate) {
+      onNotesUpdate({ subjective, objective, assessment, plan });
+    }
+  }, [subjective, objective, assessment, plan, onNotesUpdate]);
 
   useEffect(() => {
     const fetchClinicalNotes = async () => {
