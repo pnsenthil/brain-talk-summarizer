@@ -17,12 +17,12 @@ serve(async (req) => {
       throw new Error('No audio data provided');
     }
 
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
+    const ASSEMBLYAI_API_KEY = Deno.env.get('ASSEMBLYAI_API_KEY');
+    if (!ASSEMBLYAI_API_KEY) {
+      throw new Error('ASSEMBLYAI_API_KEY not configured');
     }
 
-    console.log('Processing audio transcription...');
+    console.log('Processing audio transcription with AssemblyAI...');
 
     // Convert base64 to binary
     const binaryString = atob(audioBase64);
@@ -31,44 +31,75 @@ serve(async (req) => {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    // Create form data for transcription
-    const formData = new FormData();
-    const audioBlob = new Blob([bytes], { type: 'audio/webm' });
-    formData.append('file', audioBlob, 'audio.webm');
-    formData.append('model', 'whisper-1');
-
-    // Call Lovable AI Gateway for transcription
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/audio/transcriptions', {
+    // Upload audio to AssemblyAI
+    console.log('Uploading audio to AssemblyAI...');
+    const uploadResponse = await fetch('https://api.assemblyai.com/v2/upload', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': ASSEMBLYAI_API_KEY,
+        'Content-Type': 'application/octet-stream',
       },
-      body: formData,
+      body: bytes,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Transcription error:', response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      throw new Error(`Transcription failed: ${errorText}`);
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('Upload error:', uploadResponse.status, errorText);
+      throw new Error(`Failed to upload audio: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log('Transcription successful');
+    const uploadData = await uploadResponse.json();
+    console.log('Audio uploaded, URL:', uploadData.upload_url);
+
+    // Create transcription request
+    const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
+      method: 'POST',
+      headers: {
+        'Authorization': ASSEMBLYAI_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        audio_url: uploadData.upload_url,
+        speaker_labels: true,
+      }),
+    });
+
+    if (!transcriptResponse.ok) {
+      const errorText = await transcriptResponse.text();
+      console.error('Transcription request error:', transcriptResponse.status, errorText);
+      throw new Error(`Failed to start transcription: ${errorText}`);
+    }
+
+    const transcriptData = await transcriptResponse.json();
+    console.log('Transcript ID:', transcriptData.id);
+
+    // Poll for completion
+    let status = transcriptData.status;
+    let result = transcriptData;
+    
+    while (status !== 'completed' && status !== 'error') {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const pollResponse = await fetch(`https://api.assemblyai.com/v2/transcript/${transcriptData.id}`, {
+        headers: {
+          'Authorization': ASSEMBLYAI_API_KEY,
+        },
+      });
+
+      if (!pollResponse.ok) {
+        throw new Error('Failed to poll transcription status');
+      }
+
+      result = await pollResponse.json();
+      status = result.status;
+      console.log('Transcription status:', status);
+    }
+
+    if (status === 'error') {
+      throw new Error(`Transcription failed: ${result.error}`);
+    }
+
+    console.log('Transcription completed');
 
     return new Response(
       JSON.stringify({ text: result.text }),
