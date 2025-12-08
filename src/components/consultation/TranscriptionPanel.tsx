@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
 interface TranscriptMessage {
-  speaker: "Doctor" | "Patient";
   text: string;
   timestamp: number;
 }
@@ -124,19 +123,9 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
 
       setProcessingProgress(90);
 
-      // Use utterances if available (with speaker diarization)
-      if (data.utterances && data.utterances.length > 0) {
-        const newMessages: TranscriptMessage[] = data.utterances.map((u: any) => ({
-          speaker: u.speaker as "Doctor" | "Patient",
-          text: u.text,
-          timestamp: Date.now() + u.start,
-        }));
-        
-        setTranscripts(prev => [...prev, ...newMessages]);
-      } else if (data.text) {
-        // Fallback to single message if no utterances
+      // Just use the plain text transcription
+      if (data.text) {
         const newMessage: TranscriptMessage = {
-          speaker: "Doctor",
           text: data.text,
           timestamp: Date.now(),
         };
@@ -147,7 +136,7 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
       
       toast({
         title: "Transcription complete",
-        description: "Audio has been transcribed with speaker identification",
+        description: "Audio has been transcribed",
       });
     } catch (error: any) {
       console.error('Error processing audio:', error);
@@ -288,7 +277,7 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-medical-blue" />
-              Processing transcription with speaker identification...
+              Processing transcription...
             </span>
             <span className="text-muted-foreground">{Math.round(processingProgress)}%</span>
           </div>
@@ -304,26 +293,16 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
         )}
         
         {transcripts.map((message, index) => (
-          <div key={index} className="space-y-2">
-            <div className="flex gap-2">
-              <Badge 
-                variant="outline" 
-                className={message.speaker === "Patient" ? "text-xs bg-secondary" : "text-xs bg-medical-blue/10 text-medical-blue border-medical-blue/20"}
-              >
-                {message.speaker}
-              </Badge>
-              <p className="text-sm text-foreground flex-1">
-                {message.text}
-              </p>
-            </div>
+          <div key={index} className="p-3 bg-background rounded-lg border">
+            <p className="text-sm text-foreground">{message.text}</p>
+            <span className="text-xs text-muted-foreground mt-1 block">
+              {new Date(message.timestamp).toLocaleTimeString()}
+            </span>
           </div>
         ))}
 
         {isRecording && !isPaused && (
-          <div className="flex gap-2 animate-pulse">
-            <Badge variant="outline" className="text-xs bg-medical-blue/10 text-medical-blue border-medical-blue/20">
-              Doctor
-            </Badge>
+          <div className="p-3 bg-background rounded-lg border animate-pulse">
             <p className="text-sm text-muted-foreground italic">
               Listening...
             </p>
