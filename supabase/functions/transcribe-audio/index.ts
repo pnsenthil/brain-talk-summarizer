@@ -5,12 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface Utterance {
-  speaker: string;
-  text: string;
-  start: number;
-  end: number;
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -58,7 +52,7 @@ serve(async (req) => {
     const uploadData = await uploadResponse.json();
     console.log('Audio uploaded, URL:', uploadData.upload_url);
 
-    // Create transcription request with speaker diarization
+    // Create transcription request (without speaker diarization for simplicity)
     const transcriptResponse = await fetch('https://api.assemblyai.com/v2/transcript', {
       method: 'POST',
       headers: {
@@ -67,8 +61,6 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         audio_url: uploadData.upload_url,
-        speaker_labels: true,
-        speakers_expected: 2, // Doctor and Patient
       }),
     });
 
@@ -108,34 +100,10 @@ serve(async (req) => {
     }
 
     console.log('Transcription completed');
-    console.log('Utterances count:', result.utterances?.length || 0);
-
-    // Map speaker labels to Doctor/Patient
-    // AssemblyAI labels speakers as A, B, C, etc.
-    // First speaker (A) is typically the Doctor who starts the recording
-    const speakerMap: Record<string, string> = {};
-    const utterances: Utterance[] = result.utterances || [];
-    
-    utterances.forEach((u: any) => {
-      if (!speakerMap[u.speaker]) {
-        // First unique speaker is Doctor, second is Patient
-        const speakerCount = Object.keys(speakerMap).length;
-        speakerMap[u.speaker] = speakerCount === 0 ? 'Doctor' : 'Patient';
-      }
-    });
-
-    // Format utterances with proper speaker labels
-    const formattedUtterances = utterances.map((u: any) => ({
-      speaker: speakerMap[u.speaker] || 'Doctor',
-      text: u.text,
-      start: u.start,
-      end: u.end,
-    }));
 
     return new Response(
       JSON.stringify({ 
         text: result.text,
-        utterances: formattedUtterances,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
