@@ -85,63 +85,70 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
     if (audioChunksRef.current.length === 0) return;
 
     setIsProcessing(true);
-    setProcessingProgress(0);
+    setProcessingProgress(10);
     
-    // Simulate progress for better UX
+    // Start progress animation
     progressIntervalRef.current = window.setInterval(() => {
       setProcessingProgress(prev => {
-        if (prev >= 90) return prev;
-        return prev + Math.random() * 10;
+        if (prev >= 85) return prev;
+        return prev + Math.random() * 5;
       });
-    }, 500);
+    }, 1000);
     
     try {
       const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
       
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
+      // Convert blob to base64 using Promise
+      const base64Audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result?.toString().split(',')[1];
+          if (result) {
+            resolve(result);
+          } else {
+            reject(new Error('Failed to convert audio'));
+          }
+        };
+        reader.onerror = () => reject(new Error('Failed to read audio file'));
+        reader.readAsDataURL(audioBlob);
+      });
+
+      setProcessingProgress(30);
+
+      // Call transcription edge function
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: { audioBase64: base64Audio }
+      });
+
+      if (error) throw error;
+
+      setProcessingProgress(90);
+
+      // Use utterances if available (with speaker diarization)
+      if (data.utterances && data.utterances.length > 0) {
+        const newMessages: TranscriptMessage[] = data.utterances.map((u: any) => ({
+          speaker: u.speaker as "Doctor" | "Patient",
+          text: u.text,
+          timestamp: Date.now() + u.start,
+        }));
+        
+        setTranscripts(prev => [...prev, ...newMessages]);
+      } else if (data.text) {
+        // Fallback to single message if no utterances
+        const newMessage: TranscriptMessage = {
+          speaker: "Doctor",
+          text: data.text,
+          timestamp: Date.now(),
+        };
+        setTranscripts(prev => [...prev, newMessage]);
+      }
       
-      reader.onloadend = async () => {
-        const base64Audio = reader.result?.toString().split(',')[1];
-        
-        if (!base64Audio) {
-          throw new Error('Failed to convert audio');
-        }
-
-        // Call transcription edge function
-        const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-          body: { audioBase64: base64Audio }
-        });
-
-        if (error) throw error;
-
-        // Use utterances if available (with speaker diarization)
-        if (data.utterances && data.utterances.length > 0) {
-          const newMessages: TranscriptMessage[] = data.utterances.map((u: any) => ({
-            speaker: u.speaker as "Doctor" | "Patient",
-            text: u.text,
-            timestamp: Date.now() + u.start,
-          }));
-          
-          setTranscripts(prev => [...prev, ...newMessages]);
-        } else if (data.text) {
-          // Fallback to single message if no utterances
-          const newMessage: TranscriptMessage = {
-            speaker: "Doctor",
-            text: data.text,
-            timestamp: Date.now(),
-          };
-          setTranscripts(prev => [...prev, newMessage]);
-        }
-        
-        setProcessingProgress(100);
-        
-        toast({
-          title: "Transcription complete",
-          description: "Audio has been transcribed with speaker identification",
-        });
-      };
+      setProcessingProgress(100);
+      
+      toast({
+        title: "Transcription complete",
+        description: "Audio has been transcribed with speaker identification",
+      });
     } catch (error: any) {
       console.error('Error processing audio:', error);
       toast({
@@ -152,11 +159,12 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
     } finally {
       if (progressIntervalRef.current) {
         clearInterval(progressIntervalRef.current);
+        progressIntervalRef.current = null;
       }
       setTimeout(() => {
         setIsProcessing(false);
         setProcessingProgress(0);
-      }, 500);
+      }, 1000);
       audioChunksRef.current = [];
     }
   };

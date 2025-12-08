@@ -7,7 +7,7 @@ import { GuidelinePanel } from "@/components/consultation/GuidelinePanel";
 import { PatientUploadsPanel } from "@/components/consultation/PatientUploadsPanel";
 import { ArrowLeft, User, CheckCircle } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -124,10 +124,25 @@ const Consultation = () => {
     fetchConsultation();
   }, [id, toast]);
 
-  const handleTranscriptUpdate = async (updatedTranscript: TranscriptMessage[]) => {
+  // Debounce timer ref
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isSavingRef = useRef(false);
+
+  const handleTranscriptUpdate = useCallback((updatedTranscript: TranscriptMessage[]) => {
     setTranscript(updatedTranscript);
     
-    if (id) {
+    if (!id || updatedTranscript.length === 0) return;
+
+    // Clear any pending save
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Debounce the save operation
+    saveTimeoutRef.current = setTimeout(async () => {
+      if (isSavingRef.current) return;
+      
+      isSavingRef.current = true;
       try {
         const { error } = await supabase
           .from('consultations')
@@ -137,9 +152,20 @@ const Consultation = () => {
         if (error) throw error;
       } catch (error) {
         console.error('Error saving transcript:', error);
+      } finally {
+        isSavingRef.current = false;
       }
-    }
-  };
+    }, 2000); // Wait 2 seconds after last update before saving
+  }, [id]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleSoapNotesUpdate = (notes: SoapNotes) => {
     setSoapNotes(notes);
