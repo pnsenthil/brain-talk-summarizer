@@ -137,15 +137,6 @@ export const GuidelinePanel = ({ consultationId, soapNotes }: GuidelinePanelProp
       }
     }
 
-    // Add allergies warning if present
-    if (patientContext?.allergies && patientContext.allergies.length > 0) {
-      generatedInsights.push({
-        type: 'warning',
-        title: 'Allergy Alert',
-        content: `Patient has documented allergies: ${patientContext.allergies.join(', ')}. Verify any new prescriptions.`,
-      });
-    }
-
     setInsights(generatedInsights);
     setIsLoading(false);
   };
@@ -236,9 +227,6 @@ export const GuidelinePanel = ({ consultationId, soapNotes }: GuidelinePanelProp
                   <p><span className="font-medium">Name:</span> {patientContext.full_name}</p>
                   {patientContext.diagnosis && (
                     <p><span className="font-medium">Diagnosis:</span> {patientContext.diagnosis}</p>
-                  )}
-                  {patientContext.allergies && patientContext.allergies.length > 0 && (
-                    <p><span className="font-medium">Allergies:</span> {patientContext.allergies.join(', ')}</p>
                   )}
                 </div>
               </AlertDescription>
