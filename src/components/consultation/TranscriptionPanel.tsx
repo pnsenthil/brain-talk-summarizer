@@ -8,18 +8,20 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
 interface TranscriptMessage {
+  speaker?: "Doctor" | "Patient";
   text: string;
   timestamp: number;
 }
 
 interface TranscriptionPanelProps {
   onTranscriptUpdate?: (transcript: TranscriptMessage[]) => void;
+  initialTranscripts?: TranscriptMessage[];
 }
 
-export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelProps) => {
+export const TranscriptionPanel = ({ onTranscriptUpdate, initialTranscripts = [] }: TranscriptionPanelProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
+  const [transcripts, setTranscripts] = useState<TranscriptMessage[]>(initialTranscripts);
   const [duration, setDuration] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
@@ -29,6 +31,13 @@ export const TranscriptionPanel = ({ onTranscriptUpdate }: TranscriptionPanelPro
   const intervalRef = useRef<number | null>(null);
   const progressIntervalRef = useRef<number | null>(null);
   const { toast } = useToast();
+
+  // Sync with initial transcripts when they change (e.g., loaded from DB)
+  useEffect(() => {
+    if (initialTranscripts.length > 0 && transcripts.length === 0) {
+      setTranscripts(initialTranscripts);
+    }
+  }, [initialTranscripts]);
 
   useEffect(() => {
     if (onTranscriptUpdate) {
