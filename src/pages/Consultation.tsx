@@ -329,7 +329,10 @@ const Consultation = () => {
           )}
           
           <div className="h-[400px]">
-            <TranscriptionPanel onTranscriptUpdate={handleTranscriptUpdate} />
+            <TranscriptionPanel 
+              onTranscriptUpdate={handleTranscriptUpdate} 
+              initialTranscripts={transcript}
+            />
           </div>
           <div className="h-[600px]">
             <ClinicalNotes 
