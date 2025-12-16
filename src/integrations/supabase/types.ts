@@ -300,6 +300,7 @@ export type Database = {
           completed: boolean | null
           consultation_id: string | null
           created_at: string | null
+          form_data: Json | null
           id: string
           last_seizure_date: string | null
           medication_compliance: string | null
@@ -310,6 +311,7 @@ export type Database = {
           side_effects: string | null
           sleep_quality: string | null
           stress_level: string | null
+          template_id: string | null
           triggers: string[] | null
           updated_at: string | null
         }
@@ -318,6 +320,7 @@ export type Database = {
           completed?: boolean | null
           consultation_id?: string | null
           created_at?: string | null
+          form_data?: Json | null
           id?: string
           last_seizure_date?: string | null
           medication_compliance?: string | null
@@ -328,6 +331,7 @@ export type Database = {
           side_effects?: string | null
           sleep_quality?: string | null
           stress_level?: string | null
+          template_id?: string | null
           triggers?: string[] | null
           updated_at?: string | null
         }
@@ -336,6 +340,7 @@ export type Database = {
           completed?: boolean | null
           consultation_id?: string | null
           created_at?: string | null
+          form_data?: Json | null
           id?: string
           last_seizure_date?: string | null
           medication_compliance?: string | null
@@ -346,6 +351,7 @@ export type Database = {
           side_effects?: string | null
           sleep_quality?: string | null
           stress_level?: string | null
+          template_id?: string | null
           triggers?: string[] | null
           updated_at?: string | null
         }
@@ -371,7 +377,44 @@ export type Database = {
             referencedRelation: "patients"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "triage_forms_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "triage_templates"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      triage_templates: {
+        Row: {
+          created_at: string | null
+          fields: Json
+          id: string
+          is_default: boolean | null
+          name: string
+          specialty: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fields: Json
+          id?: string
+          is_default?: boolean | null
+          name: string
+          specialty: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fields?: Json
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          specialty?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

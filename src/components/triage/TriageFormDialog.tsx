@@ -1,44 +1,60 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useTriageTemplate, useTriageTemplates } from "@/hooks/useTriageTemplate";
+import { TriageFieldRenderer } from "./TriageFieldRenderer";
+import { Loader2 } from "lucide-react";
 
 interface TriageFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   consultationId: string;
   patientId: string;
+  specialty?: string;
   onComplete?: () => void;
 }
 
-const TRIGGER_OPTIONS = [
-  "Stress",
-  "Lack of sleep",
-  "Missed medication",
-  "Bright lights",
-  "Alcohol",
-  "Caffeine",
-  "Hormonal changes",
-  "Other"
-];
-
-export const TriageFormDialog = ({ open, onOpenChange, consultationId, patientId, onComplete }: TriageFormDialogProps) => {
+export const TriageFormDialog = ({ 
+  open, 
+  onOpenChange, 
+  consultationId, 
+  patientId, 
+  specialty,
+  onComplete 
+}: TriageFormDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [existingTriage, setExistingTriage] = useState<any>(null);
-  const [selectedTriggers, setSelectedTriggers] = useState<string[]>([]);
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [commonFields, setCommonFields] = useState({
+    sleep_quality: "",
+    stress_level: "",
+    additional_notes: "",
+  });
   const { toast } = useToast();
+
+  const { templates, loading: templatesLoading } = useTriageTemplates();
+  const { template, loading: templateLoading } = useTriageTemplate(
+    selectedTemplateId || undefined,
+    !selectedTemplateId ? specialty : undefined
+  );
 
   useEffect(() => {
     if (open && consultationId) {
       loadExistingTriage();
     }
   }, [open, consultationId]);
+
+  useEffect(() => {
+    if (template && !selectedTemplateId) {
+      setSelectedTemplateId(template.id);
+    }
+  }, [template]);
 
   const loadExistingTriage = async () => {
     const { data } = await supabase
@@ -49,15 +65,26 @@ export const TriageFormDialog = ({ open, onOpenChange, consultationId, patientId
 
     if (data) {
       setExistingTriage(data);
-      setSelectedTriggers(data.triggers || []);
+      setFormData((data.form_data as Record<string, any>) || {});
+      setCommonFields({
+        sleep_quality: data.sleep_quality || "",
+        stress_level: data.stress_level || "",
+        additional_notes: data.additional_notes || "",
+      });
+      if (data.template_id) {
+        setSelectedTemplateId(data.template_id);
+      }
     }
+  };
+
+  const handleFieldChange = (key: string, value: any) => {
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
     const { data: { user } } = await supabase.auth.getUser();
 
     try {
@@ -65,15 +92,11 @@ export const TriageFormDialog = ({ open, onOpenChange, consultationId, patientId
         patient_id: patientId,
         consultation_id: consultationId,
         nurse_id: user?.id,
-        seizure_frequency: formData.get("seizure_frequency") as string,
-        last_seizure_date: formData.get("last_seizure_date") as string,
-        seizure_duration: formData.get("seizure_duration") as string,
-        medication_compliance: formData.get("medication_compliance") as string,
-        side_effects: formData.get("side_effects") as string,
-        triggers: selectedTriggers,
-        sleep_quality: formData.get("sleep_quality") as string,
-        stress_level: formData.get("stress_level") as string,
-        additional_notes: formData.get("additional_notes") as string,
+        template_id: selectedTemplateId,
+        form_data: formData,
+        sleep_quality: commonFields.sleep_quality,
+        stress_level: commonFields.stress_level,
+        additional_notes: commonFields.additional_notes,
         completed: true,
       };
 
@@ -110,149 +133,126 @@ export const TriageFormDialog = ({ open, onOpenChange, consultationId, patientId
     }
   };
 
-  const toggleTrigger = (trigger: string) => {
-    setSelectedTriggers(prev =>
-      prev.includes(trigger)
-        ? prev.filter(t => t !== trigger)
-        : [...prev, trigger]
-    );
-  };
+  const isLoading = templatesLoading || templateLoading;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Epilepsy Triage Form</DialogTitle>
+          <DialogTitle>
+            {template ? `${template.name} Triage Form` : "Triage Form"}
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
+        
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Template Selector */}
             <div className="space-y-2">
-              <Label htmlFor="seizure_frequency">Seizure Frequency</Label>
-              <Input
-                id="seizure_frequency"
-                name="seizure_frequency"
-                defaultValue={existingTriage?.seizure_frequency}
-                placeholder="e.g., 2-3 per month"
-              />
+              <Label>Triage Template</Label>
+              <Select 
+                value={selectedTemplateId} 
+                onValueChange={(id) => {
+                  setSelectedTemplateId(id);
+                  setFormData({});
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select triage template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="last_seizure_date">Last Seizure Date</Label>
-              <Input
-                id="last_seizure_date"
-                name="last_seizure_date"
-                type="date"
-                defaultValue={existingTriage?.last_seizure_date}
-              />
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="seizure_duration">Typical Seizure Duration</Label>
-            <Input
-              id="seizure_duration"
-              name="seizure_duration"
-              defaultValue={existingTriage?.seizure_duration}
-              placeholder="e.g., 1-2 minutes"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="medication_compliance">Medication Compliance</Label>
-            <Select name="medication_compliance" defaultValue={existingTriage?.medication_compliance}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select compliance level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="excellent">Excellent - Never miss</SelectItem>
-                <SelectItem value="good">Good - Rarely miss</SelectItem>
-                <SelectItem value="fair">Fair - Sometimes miss</SelectItem>
-                <SelectItem value="poor">Poor - Frequently miss</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="side_effects">Current Side Effects</Label>
-            <Textarea
-              id="side_effects"
-              name="side_effects"
-              defaultValue={existingTriage?.side_effects}
-              placeholder="List any medication side effects"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Known Triggers</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {TRIGGER_OPTIONS.map((trigger) => (
-                <div key={trigger} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`trigger-${trigger}`}
-                    checked={selectedTriggers.includes(trigger)}
-                    onCheckedChange={() => toggleTrigger(trigger)}
-                  />
-                  <label
-                    htmlFor={`trigger-${trigger}`}
-                    className="text-sm cursor-pointer"
+            {/* Dynamic Template Fields */}
+            {template && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {template.fields.map((field) => (
+                  <div 
+                    key={field.key} 
+                    className={field.type === "checkbox_group" || field.type === "textarea" ? "md:col-span-2" : ""}
                   >
-                    {trigger}
-                  </label>
+                    <TriageFieldRenderer
+                      field={field}
+                      value={formData[field.key]}
+                      onChange={handleFieldChange}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Common Fields */}
+            <div className="border-t pt-4 space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground">General Assessment</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sleep_quality">Sleep Quality</Label>
+                  <Select 
+                    value={commonFields.sleep_quality} 
+                    onValueChange={(v) => setCommonFields(prev => ({ ...prev, sleep_quality: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select quality" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Excellent">Excellent</SelectItem>
+                      <SelectItem value="Good">Good</SelectItem>
+                      <SelectItem value="Fair">Fair</SelectItem>
+                      <SelectItem value="Poor">Poor</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stress_level">Stress Level</Label>
+                  <Select 
+                    value={commonFields.stress_level} 
+                    onValueChange={(v) => setCommonFields(prev => ({ ...prev, stress_level: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="Moderate">Moderate</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                      <SelectItem value="Severe">Severe</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="sleep_quality">Sleep Quality</Label>
-              <Select name="sleep_quality" defaultValue={existingTriage?.sleep_quality}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select quality" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="excellent">Excellent</SelectItem>
-                  <SelectItem value="good">Good</SelectItem>
-                  <SelectItem value="fair">Fair</SelectItem>
-                  <SelectItem value="poor">Poor</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="additional_notes">Additional Notes</Label>
+                <Textarea
+                  id="additional_notes"
+                  value={commonFields.additional_notes}
+                  onChange={(e) => setCommonFields(prev => ({ ...prev, additional_notes: e.target.value }))}
+                  placeholder="Any other relevant information"
+                  rows={4}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="stress_level">Stress Level</Label>
-              <Select name="stress_level" defaultValue={existingTriage?.stress_level}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="moderate">Moderate</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="severe">Severe</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Saving..." : "Save Triage Form"}
+              </Button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="additional_notes">Additional Notes</Label>
-            <Textarea
-              id="additional_notes"
-              name="additional_notes"
-              defaultValue={existingTriage?.additional_notes}
-              placeholder="Any other relevant information"
-              rows={4}
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Triage Form"}
-            </Button>
-          </div>
-        </form>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

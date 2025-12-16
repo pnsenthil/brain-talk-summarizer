@@ -9,9 +9,18 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { UserPlus } from "lucide-react";
 
+const VISIT_TYPES = [
+  { value: "general", label: "General Medicine" },
+  { value: "neurology", label: "Neurology / Epilepsy" },
+  { value: "cardiology", label: "Cardiology" },
+  { value: "pediatrics", label: "Pediatrics" },
+  { value: "follow-up", label: "Follow-up Visit" },
+];
+
 export const PatientRegistrationDialog = ({ onPatientAdded }: { onPatientAdded?: () => void }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [visitType, setVisitType] = useState("general");
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,13 +53,13 @@ export const PatientRegistrationDialog = ({ onPatientAdded }: { onPatientAdded?:
 
       if (patientError) throw patientError;
 
-      // Create consultation
+      // Create consultation with visit type
       const { error: consultationError } = await supabase
         .from("consultations")
         .insert({
           patient_id: patient.id,
           chief_complaint: formData.get("chief_complaint") as string,
-          visit_type: "Follow-up",
+          visit_type: visitType,
           status: "waiting",
           priority: "routine",
           scheduled_time: new Date().toISOString(),
@@ -64,6 +73,7 @@ export const PatientRegistrationDialog = ({ onPatientAdded }: { onPatientAdded?:
       });
 
       setOpen(false);
+      setVisitType("general");
       e.currentTarget.reset();
       onPatientAdded?.();
     } catch (error: any) {
@@ -116,14 +126,31 @@ export const PatientRegistrationDialog = ({ onPatientAdded }: { onPatientAdded?:
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
-              <Input id="phone" name="phone" type="tel" />
+              <Label htmlFor="visit_type">Visit Type *</Label>
+              <Select value={visitType} onValueChange={setVisitType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select visit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {VISIT_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone</Label>
+              <Input id="phone" name="phone" type="tel" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" />
+            </div>
           </div>
 
           <div className="space-y-2">
